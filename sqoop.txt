@@ -1,0 +1,19 @@
+Pase datos desde mysql a HDFS. Para ello siga los siguientes pasos descrito en una consola:  
+Sqoop import-all-tables \
+-m 1 \
+--connect jdbc:mysql://quickstart:3306/retail_db \
+--username=retail_dba \
+--password=cloudera \
+--compression-codec=snappy \
+--as-avrodatafile \
+--warehouse-dir=/user/hive/warehouse
+•	Muestre las bases de datos que hay. Puede entrar a mysql con la siguiente instrucción estando en Cloudera: mysql –h localhost –u root –p
+•	Password: cloudera
+•	Muestre las tablas de la base de datos retail_db
+•	Verifique que se hayan copiado todas las tablas (hdfs dfs –ls /ruta donde copio…)
+•	Ls –l *.avsc
+•	Para ver la estructura de una tabla: cat sqoop_import_categories.avsc
+•	Cree un directorio en user/examen, otorgue a ese directorio permisos de lectura y escritura.  Luego cree los archivos con extensión “avsc” a ese directorio
+o	Sudo –u hdfs hadoop fs –mkdir /user/examen
+o	Sudo –u hdfs hadoop fs –chmod +rw /user/examen
+o	Hadoop fs –copyFromLocal ~/*.avsc /user/examen/
