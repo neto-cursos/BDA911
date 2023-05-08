@@ -1,0 +1,129 @@
+Importar todas las tablas de la base de datos MySQL a Hadoop:
+Utiliza el comando sqoop import-all-tables para importar todas las tablas de la base de datos MySQL a HDFS en formato AVRO y comprimidas con Snappy:
+sqoop import-all-tables \
+-m 1 \
+--connect jdbc:mysql://quickstart:3306/retail_db \
+--username=retail_dba \
+--password=cloudera \
+--compression-codec=snappy \
+--as-avrodatafile \
+--warehouse-dir=/user/hive/warehouse
+Verificar las bases de datos en MySQL:
+Conéctate a MySQL en Cloudera usando la siguiente instrucción:
+
+mysql -h localhost -u root -p
+Ingresa la contraseña: cloudera
+
+Mostrar las tablas de la base de datos retail_db:
+Ejecuta el siguiente comando en MySQL para listar las tablas en la base de datos retail_db:
+
+USE retail_db;
+SHOW TABLES;
+Verificar que todas las tablas se hayan copiado en HDFS:
+Ejecuta el siguiente comando para listar los archivos en el directorio donde se importaron las tablas:
+
+hdfs dfs -ls /user/hive/warehouse
+Listar archivos AVSC:
+Ejecuta el siguiente comando para listar todos los archivos .avsc en el directorio actual:
+
+ls -l *.avsc
+Ver la estructura de una tabla:
+Usa el siguiente comando para ver el contenido del archivo sqoop_import_categories.avsc:
+
+cat sqoop_import_categories.avsc
+Crear un directorio en /user/examen, otorgar permisos de lectura y escritura, y copiar archivos .avsc al directorio:
+Ejecuta los siguientes comandos para crear el directorio, cambiar sus permisos y copiar los archivos .avsc:
+
+sudo -u hdfs hadoop fs -mkdir /user/examen
+sudo -u hdfs hadoop fs -chmod +rw /user/examen
+hadoop fs -copyFromLocal ~/*.avsc /user/examen/
+Después de completar estos pasos, habrás importado todas las tablas de la base de datos retail_db en formato AVRO a HDFS y copiado los archivos de esquema AVRO (.avsc) al directorio /user/examen.
+
+--------------------------------------------------------------
+
+Para importar las tablas a Impala utilizando los archivos de esquema AVRO, sigue estos pasos:
+
+Inicia Impala Shell:
+Ejecuta el siguiente comando en la terminal para iniciar Impala Shell:
+
+impala-shell
+Crear una base de datos en Impala (opcional):
+Si deseas crear una nueva base de datos en Impala para almacenar las tablas importadas, ejecuta el siguiente comando:
+
+
+CREATE DATABASE IF NOT EXISTS <database_name>;
+USE <database_name>;
+Reemplaza <database_name> con el nombre de la base de datos que deseas crear.
+
+Crear tablas en Impala usando archivos de esquema AVRO:
+Para cada archivo AVRO que deseas importar, crea una tabla en Impala utilizando el siguiente comando:
+
+
+CREATE EXTERNAL TABLE <impala_table_name>
+STORED AS AVRO
+TBLPROPERTIES ('avro.schema.url'='hdfs:///user/examen/<avro_schema_file>.avsc')
+LOCATION 'hdfs:///user/hive/warehouse/<path_to_avro_data>';
+Reemplaza <impala_table_name> con el nombre que deseas para la tabla en Impala, <avro_schema_file> con el nombre del archivo de esquema AVRO correspondiente (sin la extensión .avsc), y <path_to_avro_data> con la ruta al directorio en HDFS donde se encuentran los datos AVRO para esa tabla.
+
+Por ejemplo, si has importado la tabla categories y su archivo de esquema AVRO es sqoop_import_categories.avsc, y los datos se encuentran en /user/hive/warehouse/categories_avro, el comando sería:
+
+CREATE EXTERNAL TABLE categories
+STORED AS AVRO
+TBLPROPERTIES ('avro.schema.url'='hdfs:///user/examen/sqoop_import_categories.avsc')
+LOCATION 'hdfs:///user/hive/warehouse/categories_avro';
+Actualizar metadatos en Impala:
+Después de crear todas las tablas, ejecuta el siguiente comando para actualizar los metadatos de Impala:
+
+INVALIDATE METADATA;
+Consultar las tablas en Impala:
+Ahora puedes consultar las tablas importadas en Impala utilizando SQL. Por ejemplo:
+
+SELECT * FROM <impala_table_name> WHERE columna1 = 'valor';
+Reemplaza <impala_table_name> con el nombre de la tabla en Impala y ajusta la consulta según tus necesidades.
+
+Una vez que completes estos pasos, podrás consultar las tablas en Impala utilizando los archivos de esquema AVRO.
+--------------------------------------------------------------------------
+
+
+
+# name like "create_impala_tables.sh"
+# chmod +x create_impala_tables.sh
+# ./create_impala_tables.sh
+
+
+
+#!/bin/bash
+
+# Variables
+IMPALA_DB_NAME="my_impala_db"
+AVRO_SCHEMA_DIR="/user/examen"
+HIVE_WAREHOUSE_DIR="/user/hive/warehouse"
+AVRO_FILE_EXTENSION=".avsc"
+
+# Inicia Impala Shell y crea la base de datos
+impala-shell -q "CREATE DATABASE IF NOT EXISTS ${IMPALA_DB_NAME};"
+
+# Extrae los nombres de las tablas de los archivos AVSC
+avro_schema_files=$(hadoop fs -ls ${AVRO_SCHEMA_DIR} | grep ${AVRO_FILE_EXTENSION} | awk '{print $8}')
+table_names=()
+
+for avro_schema_file in ${avro_schema_files}; do
+    table_name=$(basename ${avro_schema_file} ${AVRO_FILE_EXTENSION})
+    table_names+=(${table_name})
+done
+
+# Crea las tablas en Impala usando archivos de esquema AVRO
+for table_name in ${table_names[@]}; do
+    avro_schema_file="${AVRO_SCHEMA_DIR}/${table_name}${AVRO_FILE_EXTENSION}"
+    avro_data_dir="${HIVE_WAREHOUSE_DIR}/${table_name}_avro"
+
+    impala_create_table_query="CREATE EXTERNAL TABLE ${IMPALA_DB_NAME}.${table_name}
+    STORED AS AVRO
+    TBLPROPERTIES ('avro.schema.url'='hdfs://${avro_schema_file}')
+    LOCATION 'hdfs://${avro_data_dir}';"
+
+    impala-shell -q "${impala_create_table_query}"
+done
+
+# Actualiza los metadatos en Impala
+impala-shell -q "INVALIDATE METADATA;"
