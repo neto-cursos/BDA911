@@ -1,3 +1,4 @@
+-----
 Importar todas las tablas de la base de datos MySQL a Hadoop:
 Utiliza el comando sqoop import-all-tables para importar todas las tablas de la base de datos MySQL a HDFS en formato AVRO y comprimidas con Snappy:
 sqoop import-all-tables \
