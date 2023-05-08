@@ -139,4 +139,34 @@ sqoop import-all-tables \
 --warehouse-dir=/user/hive/warehouse
 --hive-import
 
+------------------------------------------------------------------------------------------
 
+cloudera@quickstart ~]$ sqoop import-all-tables \
+-m 1 \
+–connect jdbc:mysql://quickstart:3306/retail_db \
+–username=retail_dba \
+–password=cloudera \
+–compression-codec=snappy \
+–as-avrodatafile \
+
+When this command is complete, confirm that your Avro data files
+exist in HDFS.
+[cloudera@quickstart ~]$ hadoop fs -ls /user/hive
+ /warehouse
+
+Sqoop should also have created schema files for this data in your home directory.
+Avro schema files:
+[cloudera@quickstart ~]$ ls -l *.avsc
+
+Apache Hive will need the schema files too, so let’s copy them into HDFS
+where Hive can easily access them.
+[cloudera@quickstart ~]$ sudo -u hdfs hadoop
+fs -mkdir /user/examples
+[cloudera@quickstart ~]$ sudo -u hdfs hadoop
+fs -chmod +rw /user/examples
+[cloudera@quickstart ~]$ hadoop fs -copyFromLocal ~/*.avsc /user/examples/
+
+
+CREATE EXTERNAL TABLE categories STORED AS AVRO
+LOCATION ‘hdfs:///user/hive/warehouse/categories’
+TBLPROPERTIES (‘avro.schema.url’=’hdfs://quickstart/user/examples/sqoop_import_categories.avsc’);
